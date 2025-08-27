@@ -1,0 +1,60 @@
+package com.example.skystones
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            SkystonesGameScreen()
+        }
+    }
+}
+
+@Composable
+fun SkystonesGameScreen() {
+    var score by remember { mutableStateOf(0) }
+    var gameOver by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF87CEEB)),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+    ) {
+        Text(text = "Skystones", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(24.dp))
+        Canvas(modifier = Modifier.size(200.dp)) {
+            // Draw basic skystone (e.g. a circle)
+            drawCircle(
+                color = Color.Gray,
+                radius = 80f,
+                center = this.center
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(text = "Score: $score", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = {
+            score += 10
+            if (score >= 100) gameOver = true
+        }, enabled = !gameOver) {
+            Text("Collect Skystone")
+        }
+        if (gameOver) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Game Over!", color = Color.Red, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
