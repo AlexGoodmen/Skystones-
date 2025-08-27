@@ -1,4 +1,4 @@
-# 4x4 board with coordinate helpers and quadrant (quarter) mapping.
+    # 4x4 board with coordinate helpers and quadrant (quarter) mapping.
 # Coordinates are 1-based: row and col in 1..4. Quadrants are 1..4:
 # 1 = top-left, 2 = top-right, 3 = bottom-left, 4 = bottom-right.
 
@@ -113,16 +113,3 @@ if __name__ == "__main__":
     board.set_cell(4, 4, "D")   # bottom-right quadrant
 
     board.display()
-
-    print("\nCoordinate examples:")
-    print("3.4 ->", board.coord_to_str(3, 4))
-    print("'2.1' ->", board.str_to_coord("2.1"))
-
-    print("\nQuadrant map for some coords:")
-    for coord in [(1,1),(1,4),(3,2),(4,4)]:
-        qid, qlabel = board.get_quadrant(*coord)
-        print(f"{coord} -> quadrant {qid} ({qlabel})")
-
-    print("\nCells in quadrant 2 (top-right):", board.cells_in_quadrant(2))
-    print("\nQuadrant occupancy summary:", board.quadrant_summary())
-    
