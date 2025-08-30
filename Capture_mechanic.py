@@ -1,3 +1,5 @@
+# Capture_mechanic.py
+
 class SkystoneCard:
     def __init__(self, card_id, name, top, bottom, left, right, owner=None):
         self.card_id = card_id
@@ -67,19 +69,10 @@ class Board4x4:
             print("  +" + "---+"*self.size)
 
     def count_owner_cards(self, owner):
-        count = 0
-        for row in self.grid:
-            for card in row:
-                if card and card.owner == owner:
-                    count += 1
-        return count
+        return sum(1 for row in self.grid for card in row if card and card.owner == owner)
 
     def is_full(self):
-        for row in self.grid:
-            for card in row:
-                if card is None:
-                    return False
-        return True
+        return all(card is not None for row in self.grid for card in row)
 
 
 # --- Turn-based game logic ---
@@ -122,32 +115,59 @@ class SkystonesGame:
         return self.board.is_full()
 
 
-# --- Example usage ---
-if __name__ == "__main__":
-    # Create cards for each player
-    host_cards = [
-        SkystoneCard("H1", "RockChomp", 3, 4, 2, 5, owner="Host"),
-        SkystoneCard("H2", "WaterSurge", 2, 5, 3, 4, owner="Host"),
-        SkystoneCard("H3", "EarthSmash", 4, 2, 5, 3, owner="Host")
-    ]
-    visitor_cards = [
-        SkystoneCard("V1", "FlameBlast", 4, 3, 5, 2, owner="Visitor"),
-        SkystoneCard("V2", "WindStrike", 3, 5, 4, 2, owner="Visitor"),
-        SkystoneCard("V3", "ShadowFang", 5, 2, 3, 4, owner="Visitor")
-    ]
+# --- Example playable simulation ---
 
-    # Initialize game
-    game = SkystonesGame(host_cards, visitor_cards)
+# Host cards
+host_cards = [
+    SkystoneCard("h1", "Rock", 3, 2, 5, 1, owner="Host"),
+    SkystoneCard("h2", "Stone", 2, 4, 1, 3, owner="Host"),
+    SkystoneCard("h3", "Boulder", 4, 1, 2, 5, owner="Host"),
+    SkystoneCard("h4", "Quartz", 1, 5, 3, 2, owner="Host"),
+    SkystoneCard("h5", "Granite", 2, 3, 4, 1, owner="Host"),
+    SkystoneCard("h6", "Obsidian", 3, 3, 2, 2, owner="Host"),
+    SkystoneCard("h7", "Lava", 4, 2, 1, 5, owner="Host"),
+    SkystoneCard("h8", "Marble", 1, 4, 3, 2, owner="Host")
+]
 
-    # Sample turns
-    game.play_turn(host_cards[0], 2, 2)     # Host places RockChomp at 2,2
-    game.play_turn(visitor_cards[0], 2, 3)  # Visitor places FlameBlast at 2,3
-    game.play_turn(host_cards[1], 1, 3)     # Host places WaterSurge at 1,3
-    game.play_turn(visitor_cards[1], 3, 2)  # Visitor places WindStrike at 3,2
-    game.play_turn(host_cards[2], 4, 4)     # Host places EarthSmash at 4,4
-    game.play_turn(visitor_cards[2], 1, 1)  # Visitor places ShadowFang at 1,1
+# Visitor cards
+visitor_cards = [
+    SkystoneCard("v1", "Spike", 2, 4, 3, 2, owner="Visitor"),
+    SkystoneCard("v2", "Blade", 5, 1, 2, 3, owner="Visitor"),
+    SkystoneCard("v3", "Shard", 3, 3, 1, 4, owner="Visitor"),
+    SkystoneCard("v4", "Crystal", 2, 5, 4, 1, owner="Visitor"),
+    SkystoneCard("v5", "Fang", 4, 2, 3, 2, owner="Visitor"),
+    SkystoneCard("v6", "Dagger", 1, 3, 5, 1, owner="Visitor"),
+    SkystoneCard("v7", "Saber", 3, 1, 2, 4, owner="Visitor"),
+    SkystoneCard("v8", "Claw", 2, 4, 1, 3, owner="Visitor")
+]
 
-    # Game end check
-    if game.is_game_over():
-        winner = game.check_winner()
-        print("\nGame Over! Winner:", winner)
+game = SkystonesGame(host_cards, visitor_cards)
+
+# Predefined moves for demonstration (row, col)
+moves = [
+    (2,2), (2,3), (1,2), (1,3), (3,2), (3,3), (4,2), (4,3),
+    (1,1), (1,4), (4,1), (4,4), (2,1), (2,4), (3,1), (3,4)
+]
+
+# Simulate game
+while not game.is_game_over():
+    player = game.current_player()
+    card_list = game.player_cards[player]
+    if not card_list:
+        game.next_turn()
+        continue
+
+    card_to_play = card_list[0]  # Pick first available card
+
+    for r, c in moves:
+        if game.board.is_empty(r, c):
+            game.play_turn(card_to_play, r, c)
+            break
+
+# Final results
+winner = game.check_winner()
+print("\n--- Game Over ---")
+print(f"Host stones: {game.board.count_owner_cards('Host')}")
+print(f"Visitor stones: {game.board.count_owner_cards('Visitor')}")
+print(f"Winner: {winner}")
+        
