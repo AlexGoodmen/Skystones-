@@ -1,0 +1,236 @@
+# skystones_full.py
+from kivy.app import App
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.image import Image
+from kivy.uix.label import Label
+from kivy.core.window import Window
+
+# --- Capture Mechanic Classes ---
+class SkystoneCard:
+    def __init__(self, card_id, name, top, bottom, left, right, owner=None):
+        self.card_id = card_id
+        self.name = name
+        self.values = {"top": top, "bottom": bottom, "left": left, "right": right}
+        self.owner = owner
+        self.img_file = f"assets/cards/{name}.png"
+
+class Board4x4:
+    def __init__(self):
+        self.size = 4
+        self.grid = [[None]*4 for _ in range(4)]
+
+    def is_empty(self,row,col): 
+        return self.grid[row][col] is None
+
+    def get_card(self,row,col):
+        if 0 <= row < self.size and 0 <= col < self.size:
+            return self.grid[row][col]
+        return None
+
+    def place_card(self,row,col,card):
+        self.grid[row][col] = card
+        self.capture_adjacent(row,col,card)
+
+    def capture_adjacent(self,row,col,card):
+        directions = {
+            "top": (row-1,col,"bottom"),
+            "bottom": (row+1,col,"top"),
+            "left": (row,col-1,"right"),
+            "right": (row,col+1,"left")
+        }
+        for dir_name,(r,c,opp) in directions.items():
+            neighbor = self.get_card(r,c)
+            if neighbor and neighbor.owner != card.owner:
+                if card.values[dir_name] > neighbor.values[opp]:
+                    neighbor.owner = card.owner
+
+class SkystonesGame:
+    def __init__(self, host_cards, visitor_cards):
+        self.board = Board4x4()
+        self.turn_order = ["Host","Visitor"]
+        self.current_turn_idx = 0
+        self.player_cards = {"Host": host_cards,"Visitor": visitor_cards}
+
+    def current_player(self): 
+        return self.turn_order[self.current_turn_idx]
+
+    def next_turn(self): 
+        self.current_turn_idx = (self.current_turn_idx +1)%2
+
+    def play_card(self,card,row,col):
+        self.board.place_card(row,col,card)
+        self.player_cards[self.current_player()].remove(card)
+        self.next_turn()
+
+# --- Kivy UI ---
+class BoardCell(BoxLayout):
+    def __init__(self,row,col,app,**kwargs):
+        super().__init__(**kwargs)
+        self.row = row
+        self.col = col
+        self.app = app
+        self.orientation = 'vertical'
+        self.padding = 2
+        self.border = Button(background_normal='', background_color=[1,1,1,1])
+        self.card_img = Image(source='', allow_stretch=True)
+        self.add_widget(self.border)
+        self.border.add_widget(self.card_img)
+        self.update_cell()
+
+    def update_cell(self):
+        card = self.app.game.board.get_card(self.row,self.col)
+        if card:
+            self.card_img.source = card.img_file
+            if card.owner=="Host":
+                self.border.background_color=[1,0,0,1]  # Host = red
+            else:
+                self.border.background_color=[0,0,1,1]  # Visitor = blue
+        else:
+            self.card_img.source=''
+            self.border.background_color=[1,1,1,1]
+
+    def on_touch_down(self,touch):
+        if self.collide_point(*touch.pos):
+            if self.app.selected_card and self.app.game.board.is_empty(self.row,self.col):
+                self.app.game.play_card(self.app.selected_card,self.row,self.col)
+                self.app.selected_card=None
+                self.app.update_board()
+                self.app.update_hands()
+            return True
+        return super().on_touch_down(touch)
+
+class HandCell(Button):
+    def __init__(self, card, app, owner, **kwargs):
+        super().__init__(**kwargs)
+        self.card = card
+        self.app = app
+        self.owner = owner
+        self.size_hint = (None,1)
+        self.width = 100
+        self.background_normal = card.img_file
+        self.background_down = card.img_file
+
+        # Base color for dimming effect
+        if self.owner == "Host":
+            self.base_color = [1,0,0,1]  # red
+        else:
+            self.base_color = [0,0,1,1]  # blue
+
+        self.background_color = self.base_color.copy()
+        self.bind(on_release=self.select_card)
+
+    def select_card(self, instance):
+        # Only allow selecting if it's this player's turn
+        if self.app.game.current_player() != self.owner:
+            return
+        self.app.selected_card = self.card
+        self.app.update_hand_selection()
+
+    def update_selection(self):
+        if self.app.game.current_player() != self.owner:
+            # Dim inactive player’s hand
+            self.background_color = [c*0.5 for c in self.base_color[:3]] + [1]
+        else:
+            # Active player: highlight selected slightly
+            if self.app.selected_card == self.card:
+                self.background_color = [c*0.6 for c in self.base_color[:3]] + [1]
+            else:
+                self.background_color = self.base_color.copy()
+            
+class SkystonesApp(App):
+    def build(self):
+        Window.clearcolor=(0,0,0,1)
+
+        # --- 8 cards per player ---
+        host_cards = [
+            SkystoneCard("h1","Drow Lancer",1,0,0,1,"Host"),
+            SkystoneCard("h2","Drow Lancer 2",2,0,0,2,"Host"),
+            SkystoneCard("h3","Drow Lancer 3",3,0,0,3,"Host"),
+            SkystoneCard("h4","Drow Lancer 4",3,1,1,3,"Host"),
+            SkystoneCard("h5","Mohawk Cyclops",1,0,1,0,"Host"),
+            SkystoneCard("h6","Mace Major",0,1,0,1,"Host"),
+            SkystoneCard("h7","Lava Lancer",1,1,0,0,"Host"),
+            SkystoneCard("h8","Marble Jouster",1,4,3,2,"Host")
+        ]
+        visitor_cards = [
+            SkystoneCard("v1","Spike",2,4,3,2,"Visitor"),
+            SkystoneCard("v2","Blade",5,1,2,3,"Visitor"),
+            SkystoneCard("v3","Shard",3,3,1,4,"Visitor"),
+            SkystoneCard("v4","Crystal",2,5,4,1,"Visitor"),
+            SkystoneCard("v5","Fang",4,2,3,2,"Visitor"),
+            SkystoneCard("v6","Dagger",1,3,5,1,"Visitor"),
+            SkystoneCard("v7","Saber",3,1,2,4,"Visitor"),
+            SkystoneCard("v8","Claw",2,4,1,3,"Visitor")
+        ]
+
+        self.game = SkystonesGame(host_cards,visitor_cards)
+        self.selected_card=None
+
+        main_layout = BoxLayout(orientation='vertical', padding=5, spacing=5)
+
+        # --- Status Label ---
+        self.status_label = Label(size_hint=(1,0.05), text="Host's turn", color=[1,1,1,1])
+        main_layout.add_widget(self.status_label)
+
+        # Visitor Hand (TOP)
+        self.visitor_hand_layout = BoxLayout(size_hint=(1,0.25), spacing=5)
+        main_layout.add_widget(self.visitor_hand_layout)
+
+        # Board Grid
+        self.board_grid = GridLayout(rows=4, cols=4, spacing=2)
+        self.board_cells = []
+        for r in range(4):
+            for c in range(4):
+                cell = BoardCell(r,c,self)
+                self.board_cells.append(cell)
+                self.board_grid.add_widget(cell)
+        main_layout.add_widget(self.board_grid)
+
+        # Host Hand (BOTTOM)
+        self.host_hand_layout = BoxLayout(size_hint=(1,0.25), spacing=5)
+        main_layout.add_widget(self.host_hand_layout)
+
+        self.update_hands()
+        return main_layout
+
+    def update_board(self):
+        for cell in self.board_cells:
+            cell.update_cell()
+        self.update_status()
+
+    def update_hands(self):
+        self.host_hand_layout.clear_widgets()
+        self.visitor_hand_layout.clear_widgets()
+        for card in self.game.player_cards["Host"]:
+            self.host_hand_layout.add_widget(HandCell(card,self,"Host"))
+        for card in self.game.player_cards["Visitor"]:
+            self.visitor_hand_layout.add_widget(HandCell(card,self,"Visitor"))
+        self.update_hand_selection()
+        self.update_status()
+
+    def update_hand_selection(self):
+        for child in self.host_hand_layout.children:
+            if isinstance(child, HandCell):
+                child.update_selection()
+        for child in self.visitor_hand_layout.children:
+            if isinstance(child, HandCell):
+                child.update_selection()
+
+    def update_status(self):
+        host_count = sum(1 for r in self.game.board.grid for c in r if c and c.owner=="Host")
+        visitor_count = sum(1 for r in self.game.board.grid for c in r if c and c.owner=="Visitor")
+
+        if host_count + visitor_count == 16:
+            if host_count > visitor_count:
+                self.status_label.text = f"Game Over! Host wins ({host_count}-{visitor_count})"
+            elif visitor_count > host_count:
+                self.status_label.text = f"Game Over! Visitor wins ({visitor_count}-{host_count})"
+            else:
+                self.status_label.text = f"Game Over! It's a tie ({host_count}-{visitor_count})"
+        else:
+            self.status_label.text = f"{self.game.current_player()}'s turn | Host: {host_count}, Visitor: {visitor_count}"
+
+if __name__=="__main__":
+    SkystonesApp().run()
